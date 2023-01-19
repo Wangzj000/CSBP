@@ -1,1 +1,1 @@
-# CSBP
+# Chaotic Spiking Back-propagation (CSBP)
