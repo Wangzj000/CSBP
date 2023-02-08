@@ -1,6 +1,6 @@
 # Chaotic Spiking Back-propagation (CSBP)
 CSBP introduces chaotic loss to generaten brain-like chaotic dynamics, which can be used as a plug-in unit for SNN direct training. An exmaples is shown below.
-## Example
+## Example1 Single-neuron model
 The experiment of a single spiking neuron in the paper is shown in the following.
 ### 1. import packages for deep learning and ploting
 ```python
@@ -146,3 +146,5 @@ plt.grid()
 plt.show() 
 ```
 ![image](images/example2.png)
+## Example2 CSBP for multi-layer spiking neuron networks
+According to the defination of the chaotic loss in the paper, the ouputs or the membrane potentials of certain layers are necessary. Here we give an example for a common use. You will find CSBP can be introduced into an arbitrary layer in an arbitrary spiking neural network for direct training, including convolutional layers and fully-connected layers, so this work can be easily followed.
