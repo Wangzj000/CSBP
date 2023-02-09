@@ -147,4 +147,130 @@ plt.show()
 ```
 ![image](images/example2.png)
 ## Example2 CSBP for multi-layer spiking neuron networks
-According to the defination of the chaotic loss in the paper, the ouputs or the membrane potentials of certain layers are necessary. Here we give an example for a common use. You will find CSBP can be introduced into an arbitrary layer in an arbitrary spiking neural network for direct training, including convolutional layers and fully-connected layers, so this work can be easily followed.
+According to the defination of the chaotic loss in the paper, the ouputs or the membrane potentials of certain layers are necessary. Here we give an example for a common use. You will find CSBP can be introduced into an arbitrary layer in an arbitrary spiking neural network for direct training, including convolutional layers and fully-connected layers, so this work can be easily followed.  
+Here we use a spiking neural network with one convolutional layer and one fully-connected layer to simpilify. A random $16\times16$ image of 3 channels is input to the network for example. The results of the image classification will be output. Total category count is 10.
+```python
+# This code is form spikingjelly https://github.com/fangwei123456/spikingjelly
+class SeqToANNContainer(nn.Module):
+    def __init__(self, *args):
+        super().__init__()
+        if len(args) == 1:
+            self.module = args[0]
+        else:
+            self.module = nn.Sequential(*args)
+    def forward(self, x_seq: torch.Tensor):
+        y_shape = [x_seq.shape[0], x_seq.shape[1]]
+        y_seq = self.module(x_seq.flatten(0, 1).contiguous())
+        y_shape.extend(y_seq.shape[1:])
+        return y_seq.view(y_shape)
+def preprocess_train_sample(T, x: torch.Tensor):
+        return x.unsqueeze(0).repeat(T, 1, 1, 1, 1)  # [N, C, H, W] -> [T, N, C, H, W]
+    
+class ZIF(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input, gama):
+        out = (input > 0).float()
+        L = torch.tensor([gama])
+        ctx.save_for_backward(input, out, L)
+        return out
+    @staticmethod
+    def backward(ctx, grad_output):
+        (input, out, others) = ctx.saved_tensors
+        gama = others[0].item()
+        grad_input = grad_output.clone()
+        tmp = (1 / gama) * (1 / gama) * ((gama - input.abs()).clamp(min=0))
+        grad_input = grad_input * tmp
+        return grad_input, None
+    
+class LIFSpike(nn.Module):
+    def __init__(self, thresh=1.0, tau=0.5, gama=1.0):
+        super(LIFSpike, self).__init__()
+        self.act = ZIF.apply
+        self.thresh = thresh
+        self.tau = tau
+        self.gama = gama
+    def forward(self, x):
+        mem = 0
+        sum_spike = []
+        for t in range(x.shape[0]):
+            mem = mem * self.tau + x[t, ...]
+            spike = self.act(mem - self.thresh, self.gama)
+            mem = (1 - spike) * mem
+            sum_spike.append(spike)
+        return torch.stack(sum_spike, dim=1)
+class SNN(nn.Module):
+    def __init__(self):
+        super(SNN, self).__init__()
+        self.conv = SeqToANNContainer(nn.Conv2d(in_channels=3, out_channels=8, kernel_size=1, stride=1))
+        self.fc = SeqToANNContainer(nn.Linear(2048, 10))
+        self.act = LIFSpike()
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.act(x)
+        x = torch.flatten(x, 2)
+        x = self.fc(x)
+        return x.mean(0)
+image = torch.rand(1, 3, 16, 16)
+x = preprocess_train_sample(8, image)
+target = torch.tensor([1,0,0,0,0,0,0,0,0,0]).reshape(1, 10).float()
+net = SNN()
+out = net(x)
+```
+For a image classification task, a crossentropy loss is usually used. BP loss can be obtained.
+```python
+bp_loss = loss_fun(out, target)
+```
+The above is a general procedure of BP. To introduce CSBP into the convoluntional layer, you just need to make the following modification.
+```python
+class LIFSpike(nn.Module):
+    def __init__(self, thresh=1.0, tau=0.5, gama=1.0):
+        super(LIFSpike, self).__init__()
+        self.act = ZIF.apply
+        self.thresh = thresh
+        self.tau = tau
+        self.gama = gama
+
+    def forward(self, x):
+        mem = 0
+        sum_spike = []
+        for t in range(x.shape[0]):
+            mem = mem * self.tau + x[t, ...]
+            spike = self.act(mem - self.thresh, self.gama)
+            mem = (1 - spike) * mem
+            sum_spike.append(spike)
+        return torch.stack(sum_spike, dim=0), mem
+class SNN(nn.Module):
+    def __init__(self):
+        super(SNN, self).__init__()
+        self.conv = SeqToANNContainer(nn.Conv2d(in_channels=3, out_channels=8, kernel_size=1, stride=1))
+        self.fc = SeqToANNContainer(nn.Linear(2048, 10))
+        self.act = LIFSpike()
+    def forward(self, x):
+        x = self.conv(x)
+        mid_output = x.clone()
+        x, mid_mem = self.act(x)
+        x = torch.flatten(x, 2)
+        x = self.fc(x)
+        return x.mean(0), mid_output, mid_mem        
+image = torch.rand(1, 3, 16, 16)
+x = preprocess_train_sample(8, image)
+target = torch.tensor([1,0,0,0,0,0,0,0,0,0]).reshape(1, 10).float()
+net = SNN()
+out = net(x)
+bp_loss = loss_fun(out[0], target)
+```
+Define the chaotic loss function:
+```python
+def chaos_loss_fun(h, z, I0=0.65):
+    out = torch.sigmoid(h/10) 
+    log1, log2 = torch.log(out), torch.log(1 - out)
+    return -z * (I0 * log1 + (1 - I0) * log2)
+```
+Chaotic loss can be caculated by:
+```python
+chaotic_loss = chaos_loss_fun(out[1], 10).sum()
+```
+or another implement with membrane potential：
+```python
+chaotic_loss = chaos_loss_fun(out[2], 10).sum()
+```
