@@ -274,3 +274,9 @@ or another implement with membrane potential：
 ```python
 chaotic_loss = chaos_loss_fun(out[2], 10).sum()
 ```
+## The Training logs on different datasets
+The folder *CIFAR100* exhibits the logs of CIFAR100 with the baseline of TET[<sup>1</sup>](#refer-anchor-1). The folder *DVS-CIFAR10*, *DVS-Gesture* and *ImageNet* exhibit the logs of DVS-CIFAR10, DVS-Gesture and ImageNet with the baseline of SEW[<sup>2</sup>](#refer-anchor-2). The folder *Reproduction of TEBN and comparison with CSBP* exhibits the logs of reproduction of TEBN[<sup>3</sup>](#refer-anchor-3) and applying CSBP.
+## Reference
+[1] Meng Q, Xiao M, Yan S et al. Training High-Performance Low-Latency Spiking Neural Networks by Differentiation on Spike Representation. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, 2022, p. 12444-12453.  
+[2] Fang W, Yu Z, Chen Y et al. Deep residual learning in spiking neural networks. Advances in Neural Information Processing Systems. 2021; 34: 21056-21069.   
+[3] Duan C, Ding J, Chen S et al. Temporal effective batch normalization in spiking neural networks. Advances in Neural Information Processing Systems. 2022; 35: 34377-34390.
