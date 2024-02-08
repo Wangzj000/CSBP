@@ -30,7 +30,7 @@ class ZIF(torch.autograd.Function):
         return grad_input, None
 # define the single-neuron network with the surrogate gradient
 act_fun = ZIF.apply
-def mem_update(ops, x, mem, spike):
+def mem_update(ops, x, mem, spike, thresh):
     mem = mem * 0.2 * (1. - spike) + ops(x)
     spike = act_fun(mem-thresh, 1) # act_fun : approximation firing function
     return mem, spike
@@ -45,9 +45,9 @@ class SNN(nn.Module):
         mem = spike = sum_spike = torch.zeros([1, 1], device=device)
         inp_spikes = torch.zeros((x.shape[0], self.time_window), device=device)
         for step in range(self.time_window):
-            mem, spike = mem_update(self.layer, x, mem, spike)
+            mem, spike = mem_update(self.layer, x, mem, spike, thresh)
             sum_spike += spike
-        out = sum_spike / time_window
+        out = sum_spike / self.time_window
         h = self.layer(x)
         return out, h, mem
 ```
@@ -71,7 +71,7 @@ loss_fun = nn.MSELoss()
 inp = torch.FloatTensor([[1]]).to(device) # input sample
 tgt = torch.FloatTensor([[0]]).to(device) # target of input
 
-net = SNN()
+net = SNN(time_window = time_window)
 net.to(device)
 loss_list = []
 w_list = []
@@ -94,8 +94,8 @@ fig, ax = plt.subplots(figsize=(6, 4))
 ax.scatter(range(4000), w_list, s=3)
 plt.xticks(size=15)
 plt.yticks(size=15)
-plt.xlabel('epoch', fontproperties="Calibri", fontsize=20)
-plt.ylabel('$w$', fontproperties="Calibri", fontsize=20)
+plt.xlabel('epoch', fontproperties="Arial", fontsize=20)
+plt.ylabel('$w$', fontproperties="Arial", fontsize=20)
 xmajorLocator = MultipleLocator(1000)
 ax.xaxis.set_major_locator(xmajorLocator)
 plt.grid()
